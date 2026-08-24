@@ -10,11 +10,11 @@ package storeit
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/bytedance/sonic"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -99,7 +99,7 @@ func (s *RedisStore) Set[T any](ctx context.Context, key string, value T, ttl ti
 	if ttl <= 0 {
 		ttl = 0
 	}
-	data, err := json.Marshal(value)
+	data, err := sonic.Marshal(value)
 	if err != nil {
 		return fmt.Errorf("redisstore: marshal failed: %w", err)
 	}
@@ -125,7 +125,7 @@ func (s *RedisStore) Get[T any](ctx context.Context, key string) (T, error) {
 	}
 
 	var value T
-	if err := json.Unmarshal(data, &value); err != nil {
+	if err := sonic.Unmarshal(data, &value); err != nil {
 		return zero, fmt.Errorf("redisstore: unmarshal failed: %w", err)
 	}
 	return value, nil
@@ -155,7 +155,7 @@ func (s *RedisStore) GetMany[T any](ctx context.Context, keys []string) (map[str
 			continue
 		}
 		var value T
-		if err := json.Unmarshal([]byte(str), &value); err != nil {
+		if err := sonic.Unmarshal([]byte(str), &value); err != nil {
 			return nil, fmt.Errorf("redisstore: unmarshal failed for key %q: %w", keys[i], err)
 		}
 		out[keys[i]] = value
