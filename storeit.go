@@ -1,4 +1,4 @@
-// Package redisstore provides a thin, dependency-injection-friendly wrapper
+// Package storeit provides a thin, dependency-injection-friendly wrapper
 // around go-redis for storing and retrieving arbitrary objects as JSON.
 //
 // The store itself (RedisStore) is a plain, non-generic struct so it can be
@@ -21,11 +21,9 @@ import (
 // ErrNotFound is returned when a key does not exist in Redis.
 var ErrNotFound = errors.New("redisstore: key not found")
 
-var DefaultTTL = time.Minute * 10
-
 // RedisStore is a thin, non-generic wrapper around a *redis.Client.
 //
-// It is intentionally not generic so a single *RedisStore instance can bes
+// It is intentionally not generic so a single *RedisStore instance can be
 // created at startup and injected into any service that needs Redis access,
 // regardless of what object types that service stores. Type safety is
 // added at the call site via the generic Set/Get functions below.
@@ -94,18 +92,12 @@ func (s *RedisStore) Exists(ctx context.Context, key string) (bool, error) {
 	return n > 0, nil
 }
 
-// Set marshals value as JSON and stores it under key using the given
-// *RedisStore. ttl of 0 means no expiration.
+// Set marshals value as JSON and stores it under key. ttl of 0 means no expiration.
 //
-// Set is a package-level generic function (not a method) because Go does
-// not support generic methods on non-generic types. This keeps RedisStore
-// itself injectable as a single, ordinary dependency while still giving
-// each call site full compile-time type safety:
-//
-//	err := redisstore.Set(ctx, store, "user:1", user, time.Hour)
+//	err := store.Set(ctx, "user:1", user, time.Hour)
 func (s *RedisStore) Set[T any](ctx context.Context, key string, value T, ttl time.Duration) error {
 	if ttl <= 0 {
-		ttl = DefaultTTL
+		ttl = 0
 	}
 	data, err := json.Marshal(value)
 	if err != nil {
@@ -117,10 +109,10 @@ func (s *RedisStore) Set[T any](ctx context.Context, key string, value T, ttl ti
 	return nil
 }
 
-// Get retrieves the value stored under key from the given *RedisStore and
-// unmarshals it into T. Returns ErrNotFound if the key does not exist.
+// Get retrieves the value stored under key and unmarshals it into T.
+// Returns ErrNotFound if the key does not exist.
 //
-//	user, err := redisstore.Get[User](ctx, store, "user:1")
+//	user, err := store.Get[User](ctx, "user:1")
 func (s *RedisStore) Get[T any](ctx context.Context, key string) (T, error) {
 	var zero T
 
@@ -142,7 +134,7 @@ func (s *RedisStore) Get[T any](ctx context.Context, key string) (T, error) {
 // GetMany retrieves multiple values of type T in a single round trip using
 // MGET. Missing keys are simply omitted from the returned map (no error).
 //
-//	users, err := redisstore.GetMany[User](ctx, store, []string{"user:1", "user:2"})
+//	users, err := store.GetMany[User](ctx, []string{"user:1", "user:2"})
 func (s *RedisStore) GetMany[T any](ctx context.Context, keys []string) (map[string]T, error) {
 	if len(keys) == 0 {
 		return map[string]T{}, nil
@@ -156,7 +148,7 @@ func (s *RedisStore) GetMany[T any](ctx context.Context, keys []string) (map[str
 	out := make(map[string]T, len(keys))
 	for i, r := range results {
 		if r == nil {
-			continue // key didn't exist
+			continue
 		}
 		str, ok := r.(string)
 		if !ok {

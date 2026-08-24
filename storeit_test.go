@@ -99,7 +99,7 @@ func TestSet_NoTTLPersists(t *testing.T) {
 		t.Fatalf("Set() error = %v", err)
 	}
 
-	ttl := store.client.TTL(ctx, "user:1").Val()
+	ttl := store.Client().TTL(ctx, "user:1").Val()
 	if ttl != -1 { // -1 means "no expiration" in Redis
 		t.Errorf("TTL = %v, want no expiration (-1)", ttl)
 	}
